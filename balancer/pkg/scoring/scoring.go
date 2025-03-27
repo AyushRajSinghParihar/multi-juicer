@@ -291,6 +291,19 @@ func calculateScore(bundle *bundle.Bundle, teamDeployment *appsv1.Deployment, ch
 		solvedChallengeNames = append(solvedChallengeNames, challengeSolved)
 	}
 
+	// Add bonus points for FindIt and FixIt challenges
+	if continueCodeFindIt := teamDeployment.Annotations["multi-juicer.owasp-juice.shop/continueCodeFindIt"]; continueCodeFindIt != "" {
+		// You might want to parse the FindIt code to get the actual challenges solved
+		// For now, just adding a bonus for having any FindIt progress
+		score += 50
+	}
+
+	if continueCodeFixIt := teamDeployment.Annotations["multi-juicer.owasp-juice.shop/continueCodeFixIt"]; continueCodeFixIt != "" {
+		// You might want to parse the FixIt code to get the actual challenges solved
+		// For now, just adding a bonus for having any FixIt progress
+		score += 50
+	}
+
 	return &TeamScore{
 		Name:              team,
 		Score:             score,

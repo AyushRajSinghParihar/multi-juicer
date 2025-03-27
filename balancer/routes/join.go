@@ -329,6 +329,8 @@ func createDeploymentForTeam(context context.Context, bundle *bundle.Bundle, tea
 				"multi-juicer.owasp-juice.shop/passcode":            passcodeHash,
 				"multi-juicer.owasp-juice.shop/challengesSolved":    "0",
 				"multi-juicer.owasp-juice.shop/challenges":          "[]",
+				"multi-juicer.owasp-juice.shop/continueCodeFindIt":  "",
+				"multi-juicer.owasp-juice.shop/continueCodeFixIt":   "",
 			},
 			OwnerReferences: ownerReferences,
 		},

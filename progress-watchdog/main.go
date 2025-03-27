@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/juice-shop/multi-juicer/progress-watchdog/internal"
 
@@ -77,11 +78,80 @@ func main() {
 			return
 		}
 
+		// Handle regular challenge solutions
 		deployment, err := clientset.AppsV1().Deployments(namespace).Get(context.Background(), fmt.Sprintf("juiceshop-%s", team), metav1.GetOptions{})
 		if err != nil {
 			logger.Print(fmt.Errorf("failed to get deployment for team: '%s' received via in webhook: %w", team, err))
+			http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)
+			return
 		}
 
+		// Get existing FindIt and FixIt codes from deployment
+		continueCodeFindIt := deployment.Annotations["multi-juicer.owasp-juice.shop/continueCodeFindIt"]
+		continueCodeFixIt := deployment.Annotations["multi-juicer.owasp-juice.shop/continueCodeFixIt"]
+
+		// Check if this is a FindIt or FixIt challenge
+		if strings.HasPrefix(webhook.Solution.Challenge, "find-it-") {
+			// This is a FindIt challenge - get the updated continueCodeFindIt
+			currentProgress, err := internal.getCurrentChallengeProgress(team)
+			if err != nil {
+				logger.Print(fmt.Errorf("failed to get current progress for FindIt challenge: %w", err))
+				http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			// Get regular challenge status
+			challengeStatusJson := "[]"
+			if json, ok := deployment.Annotations["multi-juicer.owasp-juice.shop/challenges"]; ok {
+				challengeStatusJson = json
+			}
+
+			challengeStatus := make(internal.ChallengeStatuses, 0)
+			err = json.Unmarshal([]byte(challengeStatusJson), &challengeStatus)
+			if err != nil {
+				logger.Print(fmt.Errorf("failed to decode json from juice shop deployment annotation: %w", err))
+			}
+
+			// Update with new FindIt code
+			internal.PersistProgress(clientset, team, challengeStatus, currentProgress.ContinueCodeFindIt, continueCodeFixIt)
+
+			logger.Printf("Updated FindIt progress for team '%s'", team)
+			responseWriter.WriteHeader(http.StatusOK)
+			responseWriter.Write([]byte("ok"))
+			return
+		}
+
+		if strings.HasPrefix(webhook.Solution.Challenge, "fix-it-") {
+			// This is a FixIt challenge - get the updated continueCodeFixIt
+			currentProgress, err := internal.getCurrentChallengeProgress(team)
+			if err != nil {
+				logger.Print(fmt.Errorf("failed to get current progress for FixIt challenge: %w", err))
+				http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			// Get regular challenge status
+			challengeStatusJson := "[]"
+			if json, ok := deployment.Annotations["multi-juicer.owasp-juice.shop/challenges"]; ok {
+				challengeStatusJson = json
+			}
+
+			challengeStatus := make(internal.ChallengeStatuses, 0)
+			err = json.Unmarshal([]byte(challengeStatusJson), &challengeStatus)
+			if err != nil {
+				logger.Print(fmt.Errorf("failed to decode json from juice shop deployment annotation: %w", err))
+			}
+
+			// Update with new FixIt code
+			internal.PersistProgress(clientset, team, challengeStatus, continueCodeFindIt, currentProgress.ContinueCodeFixIt)
+
+			logger.Printf("Updated FixIt progress for team '%s'", team)
+			responseWriter.WriteHeader(http.StatusOK)
+			responseWriter.Write([]byte("ok"))
+			return
+		}
+
+		// Handle regular challenges (existing code)
 		challengeStatusJson := "[]"
 		if json, ok := deployment.Annotations["multi-juicer.owasp-juice.shop/challenges"]; ok {
 			challengeStatusJson = json
@@ -106,7 +176,7 @@ func main() {
 		challengeStatus = append(challengeStatus, internal.ChallengeStatus{Key: webhook.Solution.Challenge, SolvedAt: webhook.Solution.IssuedOn})
 		sort.Stable(challengeStatus)
 
-		internal.PersistProgress(clientset, team, challengeStatus)
+		internal.PersistProgress(clientset, team, challengeStatus, continueCodeFindIt, continueCodeFixIt)
 
 		logger.Printf("Received webhook for team '%s' for challenge '%s'", team, webhook.Solution.Challenge)
 
