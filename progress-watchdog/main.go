@@ -93,7 +93,7 @@ func main() {
 		// Check if this is a FindIt or FixIt challenge
 		if strings.HasPrefix(webhook.Solution.Challenge, "find-it-") {
 			// This is a FindIt challenge - get the updated continueCodeFindIt
-			currentProgress, err := internal.getCurrentChallengeProgress(team)
+			currentProgress, err := internal.GetCurrentChallengeProgress(team)
 			if err != nil {
 				logger.Print(fmt.Errorf("failed to get current progress for FindIt challenge: %w", err))
 				http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)
@@ -123,7 +123,7 @@ func main() {
 
 		if strings.HasPrefix(webhook.Solution.Challenge, "fix-it-") {
 			// This is a FixIt challenge - get the updated continueCodeFixIt
-			currentProgress, err := internal.getCurrentChallengeProgress(team)
+			currentProgress, err := internal.GetCurrentChallengeProgress(team)
 			if err != nil {
 				logger.Print(fmt.Errorf("failed to get current progress for FixIt challenge: %w", err))
 				http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)

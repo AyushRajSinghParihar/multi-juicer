@@ -16,6 +16,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// Export this type that's returned by GetCurrentChallengeProgress
+type ChallengeProgressWithCodes struct {
+	Challenges         []ChallengeStatus
+	ContinueCodeFindIt string
+	ContinueCodeFixIt  string
+}
+
 type ProgressUpdateJobs struct {
 	Team                  string
 	LastChallengeProgress []ChallengeStatus
@@ -41,13 +48,6 @@ var challengeIdLookup = map[string]int{}
 // JuiceShopChallenge represents a challenge in the Juice Shop config file. reduced to just the key, everything else is not needed
 type JuiceShopChallenge struct {
 	Key string `json:"key"`
-}
-
-// Create a structure to hold all challenge progress including FindIt and FixIt codes
-type ChallengeProgressWithCodes struct {
-	Challenges         []ChallengeStatus
-	ContinueCodeFindIt string
-	ContinueCodeFixIt  string
 }
 
 func StartBackgroundSync(clientset *kubernetes.Clientset, workerCount int) {
@@ -116,8 +116,8 @@ func createProgressUpdateJobs(progressUpdateJobs chan<- ProgressUpdateJobs, clie
 	}
 }
 
-// Modify the getCurrentChallengeProgress function to also fetch FindIt and FixIt codes
-func getCurrentChallengeProgress(team string) (ChallengeProgressWithCodes, error) {
+// Modified the getCurrentChallengeProgress function to also fetch FindIt and FixIt codes
+func GetCurrentChallengeProgress(team string) (ChallengeProgressWithCodes, error) {
 	// Get regular challenge progress
 	challengeStatus, err := getCurrentChallengeStatuses(team)
 	if err != nil {
@@ -245,7 +245,7 @@ func workOnProgressUpdates(progressUpdateJobs <-chan ProgressUpdateJobs, clients
 		}
 
 		// Get current progress including FindIt and FixIt codes
-		currentProgress, err := getCurrentChallengeProgress(team)
+		currentProgress, err := GetCurrentChallengeProgress(team)
 		if err != nil {
 			logger.Println(fmt.Errorf("failed to fetch current Challenge Progress for team '%s' from Juice Shop: %w", team, err))
 			continue
@@ -270,7 +270,7 @@ func workOnProgressUpdates(progressUpdateJobs <-chan ProgressUpdateJobs, clients
 			}
 
 			// Re-fetch the complete progress after applying codes
-			currentProgress, err = getCurrentChallengeProgress(team)
+			currentProgress, err = GetCurrentChallengeProgress(team)
 			if err != nil {
 				logger.Println(fmt.Errorf("failed to re-fetch challenge progress from Juice Shop for team '%s' to reapply it: %w", team, err))
 				continue
@@ -346,4 +346,9 @@ func GenerateContinueCode(challenges []ChallengeStatus) (string, error) {
 	}
 
 	return continueCode, nil
+}
+
+// Export a function to allow main to get challenge progress
+func GetCurrentChallengeProgressForTeam(team string) (ChallengeProgressWithCodes, error) {
+	return GetCurrentChallengeProgress(team)
 }
